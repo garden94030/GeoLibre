@@ -262,6 +262,21 @@ function isSafeSourceUrl(value: unknown): boolean {
   return /^https?:\/\//i.test(value);
 }
 
+function isValidDate(value: string): boolean {
+  if (!Number.isFinite(Date.parse(value))) return false;
+  // Date.parse normalizes impossible calendar days (for example February 30).
+  // Check the civil date in the input, before any timezone offset is applied.
+  const isoDay = /^(\d{4})-(\d{2})-(\d{2})(?:$|T)/.exec(value);
+  if (!isoDay) return true;
+  const date = new Date(0);
+  date.setUTCFullYear(Number(isoDay[1]), Number(isoDay[2]) - 1, Number(isoDay[3]));
+  return (
+    date.getUTCFullYear() === Number(isoDay[1]) &&
+    date.getUTCMonth() + 1 === Number(isoDay[2]) &&
+    date.getUTCDate() === Number(isoDay[3])
+  );
+}
+
 /**
  * Minimal validation of a restored project value before treating it as a
  * `TimeSliderConfig` (it arrives untyped from the saved project file).
@@ -278,6 +293,15 @@ function normalizeConfig(state: unknown): TimeSliderConfig | null {
     typeof candidate.granularity !== "string" ||
     (candidate.currentDate !== undefined &&
       typeof candidate.currentDate !== "string") ||
+    (typeof candidate.startDate === "string" &&
+      !isValidDate(candidate.startDate)) ||
+    (typeof candidate.endDate === "string" &&
+      !isValidDate(candidate.endDate)) ||
+    (typeof candidate.currentDate === "string" &&
+      !isValidDate(candidate.currentDate)) ||
+    (typeof candidate.startDate === "string" &&
+      typeof candidate.endDate === "string" &&
+      Date.parse(candidate.endDate) < Date.parse(candidate.startDate)) ||
     !Array.isArray(candidate.sources) ||
     (candidate.sources as unknown[]).some((source) => {
       if (!source || typeof source !== "object") return true;
